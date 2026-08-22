@@ -192,6 +192,12 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.03);
     }
 
+    .message a {
+      color: #3b82f6;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
     .message.user {
       background: var(--user-msg-bg);
       color: var(--user-msg-text);
@@ -442,13 +448,30 @@
         return baseUrl + ENDPOINTS[env];
       }
 
+      // Clean URLs to remove trailing punctuation like periods or commas
+      function sanitizeUrl(rawUrl) {
+        if (!rawUrl) return '';
+        return rawUrl.trim().replace(/[\.\,\?\!\)\\]+$/, '');
+      }
+
       function appendMessage(text, sender) {
         const wrapper = document.createElement("div");
         wrapper.classList.add("message-wrapper", sender);
 
         const msgDiv = document.createElement("div");
         msgDiv.classList.add("message", sender);
-        msgDiv.textContent = text;
+        
+        // Format URLs inside text as clickable <a> links
+        if (sender === "bot") {
+          const urlRegex = /(https?:\/\/[^\s]+)/g;
+          msgDiv.innerHTML = text.replace(urlRegex, (match) => {
+            const cleanUrl = sanitizeUrl(match);
+            return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>`;
+          });
+        } else {
+          msgDiv.textContent = text;
+        }
+
         wrapper.appendChild(msgDiv);
 
         if (sender === "bot" && text) {
@@ -532,7 +555,7 @@
           }
         });
       } else {
-        micBtn.style.display = "none"; // Hide if browser doesn't support SpeechRecognition
+        micBtn.style.display = "none";
       }
 
       // Form submission
@@ -579,10 +602,13 @@
             speakText(finalReply);
           }
 
-          // Auto-open URLs
-          const urlMatch = finalReply.match(/https?:\/\/[^\s\)\>]+/);
+          // Auto-open URLs safely without trailing periods
+          const urlMatch = finalReply.match(/https?:\/\/[^\s]+/);
           if (urlMatch) {
-            window.open(urlMatch[0], '_blank');
+            const cleanTargetUrl = sanitizeUrl(urlMatch[0]);
+            if (cleanTargetUrl) {
+              window.open(cleanTargetUrl, '_blank');
+            }
           }
 
         } catch (error) {
